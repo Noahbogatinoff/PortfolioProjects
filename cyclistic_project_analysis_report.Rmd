@@ -1,0 +1,321 @@
+---
+title: "Cyclistic Case Study Analysis Report"
+author: "Noah Bogatinoff"
+date: "10/27/2021"
+output: html_document
+---
+#### [My Portfolio](https://noahbogatinoff.github.io/)
+
+### Cyclistic: The Company and Background
+Cyclistic is a bike share company from Chicago that features over 5,800 bicycles along with over 600 docking stations. The company launched in 2016 and has grown its fleet to where they are today.
+
+Ride-share bikes can be unlocked from any location and returned to any other station in the system at any point in time. By offering reclining bikes, hand tricycles, and cargo bikes, Cyclistic wants to make the bike-share industry more inclusive to riders who can’t use a standard two-wheeled bike or those with disabilities.
+
+Cyclistic offers flexible pricing plans, **including single-ride passes, full-day passes, and annual memberships.** Customers who purchase annual memberships are referred to as Cyclistic members, while those who purchase other pass options are considered causal riders.
+
+### The Problem
+Until now, Cyclistic’s marketing strategy relied on building general awareness and appealing to broad consumer segments. However, the company believes the future success depends on **maximizing the number of annual memberships.**
+
+**It is essential to understand how casual riders and annual members use Cyclistic bikes differently.** From these insights, your team will design a new marketing strategy to convert casual riders into annual members. These insights will affect how the company implements a new marketing program to convert casual riders into members.
+
+### The Data
+The data used in this analysis involves ride information from April 2019 to September 2020. The data is separated by month as well as quarterly, showing data about the check in/out times, station names, the type of bike rented and the type of user.
+
+For the purpose of the case study, the data is made available by Motivate International Inc. and is presumed to be reliable, original, and free from bias.
+
+Data privacy issues prevent disclosure of riders demographic information, aside from gender. Data collection procedures were changed as of early 2020, this will be accounted for in the data cleaning process.
+
+
+```{r Install Packages, eval=FALSE, include=FALSE}
+## install the required packages and load the libraries
+install.packages("tidyverse") ## helps wrangle and transform data
+install.packages("lubridate") ## helps with date/time cleaning and transformations
+install.packages("ggplot2") ## for visualizations
+install.packages("rmarkdown")
+```
+
+```{r Create Variables, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(rmarkdown)
+
+## collect the data and upload the csv files 
+q1_2019 <- read_csv("Divvy_Trips_2019_Q1.csv")
+q2_2019 <- read_csv("Divvy_Trips_2019_Q2.csv")
+q3_2019 <- read_csv("Divvy_Trips_2019_Q3.csv")
+q4_2019 <- read_csv("Divvy_Trips_2019_Q4.csv")
+q1_2020 <- read_csv("Divvy_Trips_2020_Q1.csv")
+```
+
+```{r Quick Look at Data, echo=TRUE, message=FALSE, warning=FALSE}
+colnames(q1_2020)
+```
+
+### Cleaning The Data
+A few issues arise with the data formatting. At the moment, there are several files, with inconsistent column naming procedures. To begin, we can rename the column headers within each file to represent the most recent naming procedure **(Q1 2020)**.
+```{r Rename Columns, echo=TRUE, results="hide"}
+## rename columns to match q1_2020 (most recent design)
+
+(q1_2019 <- rename(q1_2019,ride_id = trip_id,
+                   rideable_type = bikeid,
+                   started_at = start_time,
+                   ended_at = end_time,
+                   start_station_name = from_station_name,
+                   start_station_id = from_station_id,
+                   end_station_name = to_station_name,
+                   end_station_id = to_station_id,
+                   member_casual = usertype))
+(q2_2019 <- rename(q2_2019,
+                   ride_id = "01 - Rental Details Rental ID",
+                   rideable_type = "01 - Rental Details Bike ID",
+                   started_at = "01 - Rental Details Local Start Time",
+                   ended_at = "01 - Rental Details Local End Time",
+                   start_station_name = "03 - Rental Start Station Name", 
+                   start_station_id = "03 - Rental Start Station ID",
+                   end_station_name = "02 - Rental End Station Name",
+                   end_station_id = "02 - Rental End Station ID",
+                   member_casual = "User Type"))
+(q3_2019 <- rename(q3_2019,
+                   ride_id = trip_id,
+                   rideable_type = bikeid,
+                   started_at = start_time,
+                   ended_at = end_time,
+                   start_station_name = from_station_name,
+                   start_station_id = from_station_id,
+                   end_station_name = to_station_name,
+                   end_station_id = to_station_id,
+                   member_casual = usertype))
+(q4_2019 <- rename(q4_2019,
+                   ride_id = trip_id,
+                   rideable_type = bikeid,
+                   started_at = start_time,
+                   ended_at = end_time,
+                   start_station_name = from_station_name,
+                   start_station_id = from_station_id,
+                   end_station_name = to_station_name,
+                   end_station_id = to_station_id,
+                   member_casual = usertype))
+```
+
+Once these columns are renamed, we can see if the data is ready to be combined into 1 data frame. However, after looking at the structure of each new column, I noticed that **ride_id** and **rideable_type** in the above 4 columns appear as double data types. This needs to be converted to a character data type so these values can stack.
+
+```{r ride_id & rideable_type to character data type}
+q4_2019 <- mutate(q4_2019, ride_id = as.character(ride_id)
+                  ,rideable_type = as.character(rideable_type)) 
+q3_2019 <- mutate(q3_2019, ride_id = as.character(ride_id)
+                  ,rideable_type = as.character(rideable_type)) 
+q2_2019 <- mutate(q2_2019, ride_id = as.character(ride_id)
+                  ,rideable_type = as.character(rideable_type)) 
+q1_2019 <- mutate(q1_2019, ride_id = as.character(ride_id)
+                  ,rideable_type = as.character(rideable_type))
+```
+
+At this point, we are ready to combine the several files into 1 larger data frame, titled **all_trips**.
+
+```{r Combine into 1 data frame}
+## Combine the quarterly files into a single file
+all_trips <- bind_rows(q1_2019,q2_2019,q3_2019,q4_2019,q1_2020)
+```
+
+These files are now combined into a data frame making the future analysis much easier. De to the new data collecting procedures, we see that there are certain columns in previous years data that are not used in the new system. We can remove these columns from the new data frame. 
+
+```{r Remove unused data columns}
+## Remove fields that were dropped in new data collecting format(lat,lon,birthyear, and gender)
+all_trips <- all_trips %>% 
+  select(-c(start_lat,start_lng,end_lat,end_lng,birthyear,gender,"01 - Rental Details Duration In Seconds Uncapped","05 - Member Details Member Birthday Year","Member Gender","tripduration"))
+```
+
+Now we have a single data frame with consistent column names. Inspecting the new table that was created will give us a better idea of what we need to clean or adjust.
+
+```{r Summary of data frame}
+colnames(all_trips)
+summary(all_trips)
+```
+
+Using these functions, we have a basic insight into the new data frame. This helped me realize that the member_casual column has two extra names, including "Subscriber" and "Customer". In the new data collection procedures, these names were changed to "Member" and "Casual" respectively.
+
+```{r Clean member_casual column}
+## Change member_casual column to only include "member" and "casual"
+table(all_trips$member_casual) #shows us how many observations are under each usertype initially
+all_trips <- all_trips %>% 
+  mutate(member_casual= recode(member_casual, 
+                                "Subscriber" = "member",
+                                "Customer" = "casual"))
+table(all_trips$member_casual) ## "check to make sure if proper values were assigned
+## "Subscriber" and"Customer" should be removed
+```
+
+The "Subscriber" and "Customer" labels should be replaced with "Member" and "Casual".
+
+As a part of the initial analysis, it is important to view the differences in the data depending on the day of the week. Due to this, we need to create columns that list date, month, day, and year of each ride. 
+
+Additionally, it would be beneficial to see the difference in the length of a ride between member and casual riders. We will also add a **ride_length** calculation to the data frame.
+
+```{r Separate date items into different columns, results="hide"}
+## Create columns to aggregate date, month, day, and year of each ride
+all_trips$date <- as.Date(all_trips$started_at)
+all_trips$month <- format(as.Date(all_trips$date), "%m")
+all_trips$day <- format(as.Date(all_trips$date), "%d")
+all_trips$year <- format(as.Date(all_trips$date), "%Y")
+all_trips$day_of_week <- format(as.Date(all_trips$date), "%A")
+all_trips$ride_length <- difftime(all_trips$ended_at, all_trips$started_at)
+```
+
+After inspecting the new structure of the data frame, we find that we need to convert the **ride_length** variable to a numeric value for further calculations.
+
+```{r Convert ride_length to numeric}
+## Convert ride_length to numeric for future calculations
+all_trips$ride_length <- as.numeric(as.character(all_trips$ride_length))
+is.numeric(all_trips$ride_length) #check assigned data type
+summary(all_trips$ride_length)
+```
+
+**ride_length** is now a numeric value that will help in our analysis. However, we can see the minimum value is negative. This is due to Cyclistic taking bikes out of circulation for quality control reasons. These values need to be removed as to not affect the analysis. To do so, we will create a new data frame to not lose the original data.
+
+```{r Remove negative ride_length values}
+## Remove negative ride_length values
+all_trips_v2 <- all_trips[!(all_trips$start_station_name == "HQ QR" | all_trips$ride_length<0),]
+```
+
+With the data now cleaned, we can move into our analysis.
+
+### Cyclistic Analysis
+
+The first thing we can do is take an initial look at the difference between casual and member riders.
+
+```{r Compare member vs. casual}
+## compare member vs. casual riders
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = mean)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = median)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = max)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = min)
+```
+
+This initial look at the data shows us that casual riders tend to rent the bikes for a **longer** period of time. We can take a further look and compare the difference in average **ride_length** depending on the day of the week. This will give us a better idea of when each group tends to rent their bikes.
+
+```{r Compare by day of the week}
+## arrange by day_of_week
+all_trips_v2$day_of_week <- ordered(all_trips_v2$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+##compare average ride_length by day for member and casual riders
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual + all_trips_v2$day_of_week, FUN = mean)
+```
+
+We can arrange the data by **member_casual** first, and then by **weekday** to make the data a bit easier to read.
+
+```{r Compare sorting by member_casual, message=FALSE, warning=FALSE}
+## analyze rider data by weekday and rider type
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarize(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)
+```
+
+We see again that the average length per ride is much longer for the casual group. However, we do see some new interesting insights.
+
+Among the **member** group, a majority of the rentals occur between Monday and Friday.
+
+Among the **casual** group, a majority of the rentals occur on Saturday and Sunday. Almost half of the total rentals among casual users rent their bikes on the weekend.
+
+Now what do these numbers actually look like.
+
+***
+
+### Total Rides (Casual vs. Member)
+
+```{r Visualize: total rides by day, echo=FALSE, message=FALSE, warning=FALSE}
+## Visualize rides by rider type
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarize(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x=weekday, y=number_of_rides, fill = member_casual)) + geom_col(position = "dodge") +
+  labs(title="Total Rides",
+       subtitle = "Q1 2019 - Q1 2020",
+       x="Day of the Week",
+       y="Total Rides",
+       fill="Rider Type")
+```
+
+Among the **member** group, a majority of the rentals occur between Monday and Friday. Likely, this could be due to a reliance on Cyclistics bikes to get them to and from work. These riders with reliance and regular use are more likely to purchase annual memberships from Cyclistic. Using these bikes almost every day makes the annual membership the most cost efficient option for these individuals.
+
+Looking at the **casual** group, we can again see that a majority of the rentals occur on Saturday and Sunday. This may be a symptom of casual riders valuing Cyclistic bikes for leisure activities. Casual riders looking for a recreational activity would rather purchase a day or single-use pass due to their cost efficiency.
+
+### Average Ride Length (Casual vs. Member)
+```{r Visualize: Average ride length, echo=FALSE, message=FALSE, warning=FALSE}
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarize(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x=weekday, y=average_duration, fill = member_casual)) + geom_col(position = "dodge") +
+  labs(title="Average Ride Length",
+       subtitle = "Q1 2019 - Q1 2020",
+       x="Day of the Week",
+       y="Average Ride Length (in Seconds)",
+       fill="Rider Type")
+```
+
+When comparing **member** vs. **casual** users, we can see that, on average, casual riders rent Cyclistics' bikes for a much longer period of time. Casual riders typically rent their bike for 60 minutes, while member riders typically only spend about 15 minutes with their rental.
+
+Lastly, Looking at stations to inspect for high foot traffic might be able to give us some more information.
+
+```{r}
+head(count(all_trips_v2, start_station_name,member_casual,sort=TRUE),n=10)
+head(count(all_trips_v2, end_station_name,member_casual,sort=TRUE),n=10)
+```
+Right away from the table, we see some similar station names with some very high traffic among casual riders. We can filter out annual members to get a better idea of the popular stations with causal riders.
+
+```{r}
+head(count(filter(all_trips_v2, start_station_name == end_station_name), start_station_name,member_casual,sort=TRUE),n=10)
+```
+```{r include=FALSE}
+foot_traffic <- head(count(filter(all_trips_v2, start_station_name == end_station_name), start_station_name,member_casual,sort=TRUE),n=10)
+```
+
+```{r echo=FALSE}
+ggplot(foot_traffic, aes(x=n, y=reorder(start_station_name,n), fill = start_station_name)) +geom_col(aes(fill=start_station_name)) +labs(title="Foot Traffic by Station", subtitle="Casual Rider Only",x="Foot Traffic", y="Station Name") +theme(legend.position = "none") 
+```
+
+The stations with the highest foot traffic from casual riders are:
+
+1. Streeter Dr. & Grand Ave.
+2. Lake Shore Dr. & Monroe St.
+3. Michigan Ave. & Oak St.
+
+These stations can be used to target casual riders in the future, so we will keep this in mind.
+
+***
+On average, **member** riders appear to rent Cyclistic bike with regularity, but for a much shorter period of time. Member riders view Cyclist's bike as essential to their day to day travel. This regular use makes single-use passes very cost inefficient, and in turn, more likely to purchase annual memberships each year.
+
+However, **casual** riders rent Cyclistic bikes far less often, but for a longer period of time. This supports the possibility of causal riders using stylistic bikes for leisure activities. The typical day of casual riders does not require the use of a Cyclistic bike. These riders generally do not believe they will use the service any time soon, meaning they have no incentive to purchase an annual membership. The single-use and single-day pass. 
+
+
+## What Can Cyclistic Do
+
+At the beginning of this analysis, Cyclistic wanted to understand **how annual members and casual riders use Cyclistic bikes differently**. Through the data collected by the company, we were able to understand how each rider uses Cyclistic bikes. 
+
+We found out that annual **members** tend to rent bikes from Cyclistic on weekdays, primarily to be used for travel to and from work. The overwhelming majority of annual members rented their bikes from Monday to Friday for an average of about 15 minutes per rental. These users seem to rely on Cyclistic for their work transpiration needs, rendering single-day passes inefficient and annual memberships valuable to them.
+
+Through the same analysis, we were able to see that **casual** riders typically rent their bikes on the weekends, this time for amusement or a leisure ride. Casual riders rented their bikes on Saturday and Sunday for an average duration of about 55 to 60 minutes. These riders are referred to as casual riders because of their  decision to purchase singe-day or single-use passes as opposed to annual memberships.
+
+Cyclistic's goal is to **increase the number of annual memberships** primarily by **converting casual riders into annual members**, due to their higher profit margins. We now understand a bit more about how annual members and casual riders interact with Cyclistic bikes, and through this analysis, there are a few ways Cyclistic can convert these casual riders:
+
+#### Create an Additional Purchase Option, "Annual Leisure Pass"
+The company already knows that a majority of casual riders are aware of Cyclistic's purchasing options, however they still decide to purchase the single-use or single-day pass. If a casual rider enjoys the service Cyclistic offers, but they do not want to purchase the annual membership, they could benefit from a solid middle ground.
+
+This pass would be in between the price of the single-day pass and the annual membership and would allow any user with the pass to rent out any bikes they like on weekends. It would be considered an annual membership that is active from Friday-Sunday with the same benefits as a standard annual membership.
+
+#### Create Tageted Advertisements at High Foot-Traffic Locations
+
+In our analysis, we were able to find out which stations had the largest amount of foot traffic among casual riders. These Stations can be used to Cyclistic's benefit. By creating some targeted advertisements in these locations, we can ensure a large number of casual riders view the message. Possible advertisements could include QR codes that offer discount through Cyclistic's app or a discounted annual membership price for riders at these stations to redeem.
+
+#### Weekday vs. Weekend Pricing
+
+The increased number of casual riders on weekends can provide the company an interesting opportunity. One option Cyclistic can implement is an increased rental cost over the weekends for single-day and single-use passes. This creates a unique opportunity for casual riders to see the increased benefits of the annual membership and, as a result, increase demand for it. 
+
+***
+
+I appreciate you if you got this far. Thank you so much, if you have any suggestions on how to improve any part of the analysis, feel free to shoot me an email!
